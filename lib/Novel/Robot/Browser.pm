@@ -79,4 +79,5 @@ sub make_post_data {
 } ## end sub make_post_data
 
 no Moo;
+
 1;
