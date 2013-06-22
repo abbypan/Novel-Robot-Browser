@@ -1,83 +1,104 @@
-#  ABSTRACT: 自动化获取网页内容，并解码为unicode
+# ABSTRACT: 自动化获取网页内容，并解码为unicode
+
+=pod
+
+=encoding utf8
+
+=head1 FUNCTION
+
+=head2 request_url
+  
+    my $browser = Novel::Robot::Browser->new();
+	
+    my $url = 'http://www.jjwxc.net/onebook.php?novelid=2456';
+
+    my $content_get_ref = $browser->request_url($url);
+
+    my $form_url = 'http://www.jjwxc.net/search.php';
+
+    my $post_data = {
+		'key1' => 'value1', 
+		'key2' => 'value2', 
+    };
+
+    my $content_post_ref = $browser->request_url($form_url, $post_data);
+
+=cut
+
 package Novel::Robot::Browser;
 
 use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.07;
+our $VERSION = 0.08;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
-use HTTP::Tiny;
-use IO::Uncompress::Gunzip qw(gunzip $GunzipError);
+use WWW::Mechanize;
 use Moo;
 
-has retry => ( is => 'rw', default => sub {3}, );
+has retry => ( is => 'rw', default => sub { 3 }, );
 
-sub get_url_ref {
-    my ( $self, $url, $post_vars ) = @_;
-
-    $self->{http} ||= $self->init_browser();
-
-    my $response;
-    for my $i ( 1 .. $self->{retry} ) {
-
-        if ($post_vars) {
-            my $post_data = $self->make_post_data($post_vars);
-            $response = $self->{http}->request( 'POST', $url, $post_data );
-        }
-        else {
-            $response = $self->{http}->get($url);
-        }
-
-        last if ( $response->{success} );
-    } ## end for my $i ( 1 .. $self->...)
-
-    return unless ( $response->{success} );
-
-    my $html;
-    gunzip \$response->{content} => \$html;
-
-    my $charset = detect($html);
-    $html = decode( $charset, $html, Encode::FB_XMLCREF );
-
-    return \$html;
-} ## end sub get_url_ref
+has browser => ( is => 'rw', default => \&init_browser );
 
 sub init_browser {
     my ($self) = @_;
-    my %browser_opt = (
-        default_headers => {
-            'Accept'          => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Charset'  => 'gb2312,utf-8;q=0.7,*;q=0.7',
-            'Accept-Encoding' => "gzip, deflate",
-            'Connection'      => 'keep-alive',
-            'User-Agent' =>
-                'Moozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; MALC)',
-            'Accept-Language' => "zh,zh-cn;q=0.8,zh-tw;q=0.6,en-us;q=0.4,en;q=0.2",
-        },
+    my $http = WWW::Mechanize->new();
+
+    my %default_headers = (
+        'Accept' =>
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Charset'  => 'gb2312,utf-8;q=0.7,*;q=0.7',
+        'Accept-Encoding' => "gzip, deflate",
+        'Connection'      => 'keep-alive',
+        'User-Agent' =>
+'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; MALC)',
+        'Accept-Language' => "zh-cn,zh-tw;q=0.7, en-us,*;q=0.3",
     );
-    my $http = HTTP::Tiny->new(%browser_opt);
+    while ( my ( $k, $v ) = each %default_headers ) {
+        $http->add_header( $k, $v );
+    }
 
     return $http;
 } ## end sub init_browser
 
-sub make_post_data {
-    my ( $self, $post_vars ) = @_;
+sub request_url {
+    my ( $self, $url, $post_data ) = @_;
 
-    my @params;
-    while ( my @pair = each %$post_vars ) {
-        push @params, join( "=", @pair );
+    my $response;
+    for my $i ( 1 .. $self->{retry} ) {
+        $response = $self->make_request( $url, $post_data );
+        next unless ($response);
+
+        return $self->decode_response_content($response);
+    } ## end for my $i ( 1 .. $self->...)
+
+    return;
+} ## end sub get_url_ref
+
+sub make_request {
+    my ( $self, $url, $post_data ) = @_;
+
+    if ($post_data) {
+        $self->{browser}->post( $url, $post_data );
+    }
+    else {
+        $self->{browser}->get($url);
     }
 
-    my $data = {
-        content => join( "&", @params ),
-        headers => { 'content-type' => 'application/x-www-form-urlencoded' }
-    };
+    return unless ( $self->{browser}->success() );
+    return $self->{browser}->response();
+}
 
-    return $data;
-} ## end sub make_post_data
+sub decode_response_content {
+    my ( $self, $response ) = @_;
+
+    my $html = $response->decoded_content( charset => 'none' );
+    my $charset = detect($html);
+    $html = decode( $charset, $html, Encode::FB_XMLCREF );
+    return \$html;
+}
 
 no Moo;
 1;
