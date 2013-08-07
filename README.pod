@@ -1,0 +1,29 @@
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+L<Novel:Robot:Browser> 自动化获取网页内容，并解码为unicode
+
+=head1 FUNCTION
+
+=head2 request_url
+  
+    my $browser = Novel::Robot::Browser->new();
+	
+    my $url = 'http://www.jjwxc.net/onebook.php?novelid=2456';
+
+    my $content_get_ref = $browser->request_url($url);
+
+    my $form_url = 'http://www.jjwxc.net/search.php';
+
+    my $post_data = {
+		'key1' => 'value1', 
+		'key2' => 'value2', 
+    };
+
+    my $content_post_ref = $browser->request_url($form_url, $post_data);
+
+=cut
+

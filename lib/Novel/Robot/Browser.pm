@@ -1,44 +1,18 @@
 # ABSTRACT: 自动化获取网页内容，并解码为unicode
-
-=pod
-
-=encoding utf8
-
-=head1 FUNCTION
-
-=head2 request_url
-  
-    my $browser = Novel::Robot::Browser->new();
-	
-    my $url = 'http://www.jjwxc.net/onebook.php?novelid=2456';
-
-    my $content_get_ref = $browser->request_url($url);
-
-    my $form_url = 'http://www.jjwxc.net/search.php';
-
-    my $post_data = {
-		'key1' => 'value1', 
-		'key2' => 'value2', 
-    };
-
-    my $content_post_ref = $browser->request_url($form_url, $post_data);
-
-=cut
-
 package Novel::Robot::Browser;
 
 use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.08;
+our $VERSION = 0.09;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
 use WWW::Mechanize;
 use Moo;
 
-has retry => ( is => 'rw', default => sub { 3 }, );
+has retry => ( is => 'rw', default => sub { 5 }, );
 
 has browser => ( is => 'rw', default => \&init_browser );
 
@@ -56,6 +30,7 @@ sub init_browser {
 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; MALC)',
         'Accept-Language' => "zh-cn,zh-tw;q=0.7, en-us,*;q=0.3",
     );
+
     while ( my ( $k, $v ) = each %default_headers ) {
         $http->add_header( $k, $v );
     }
@@ -68,10 +43,11 @@ sub request_url {
 
     my $response;
     for my $i ( 1 .. $self->{retry} ) {
-        $response = $self->make_request( $url, $post_data );
-        next unless ($response);
+        eval { $response = $self->make_request( $url, $post_data ); };
 
-        return $self->decode_response_content($response);
+        return $self->decode_response_content($response) if ($response);
+
+        sleep 1;
     } ## end for my $i ( 1 .. $self->...)
 
     return;
@@ -95,8 +71,10 @@ sub decode_response_content {
     my ( $self, $response ) = @_;
 
     my $html = $response->decoded_content( charset => 'none' );
+
     my $charset = detect($html);
     $html = decode( $charset, $html, Encode::FB_XMLCREF );
+
     return \$html;
 }
 
