@@ -4,7 +4,7 @@
 
 =head1 NAME
 
-L<Novel:Robot:Browser> 自动化获取网页内容，并解码为unicode
+L<Novel::Robot::Browser> 自动化获取网页内容，并解码为unicode
 
 =head1 FUNCTION
 
