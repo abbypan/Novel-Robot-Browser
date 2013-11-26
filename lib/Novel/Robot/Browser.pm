@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.09;
+our $VERSION = 0.10;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
@@ -18,7 +18,10 @@ has browser => ( is => 'rw', default => \&init_browser );
 
 sub init_browser {
     my ($self) = @_;
-    my $http = WWW::Mechanize->new();
+    my $http = WWW::Mechanize->new(
+        onerror => sub { print "fail get url\n"; }, 
+        stack_depth => 2, 
+    );
 
     my %default_headers = (
         'Accept' =>
