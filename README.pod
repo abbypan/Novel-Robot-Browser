@@ -12,11 +12,13 @@ L<Novel::Robot::Browser> 自动化获取网页内容，并解码为unicode
   
     my $browser = Novel::Robot::Browser->new();
 	
-    #get
+=head3  get
+
     my $url = 'http://www.jjwxc.net/onebook.php?novelid=2456';
     my $content_get_ref = $browser->request_url($url);
 
-    #post
+=head3  post
+
     my $form_url = 'http://www.jjwxc.net/search.php';
     my $post_data = {
 		'key1' => 'value1', 
@@ -24,5 +26,19 @@ L<Novel::Robot::Browser> 自动化获取网页内容，并解码为unicode
     };
     my $content_post_ref = $browser->request_url($form_url, $post_data);
 
-=cut
+=head2 request_urls
 
+    my $src_arr = [ 'http://www.ustc.edu.cn', 'http://202.38.64.10' ];
+    my $res = $browser->request_urls( $src_arr, 
+        deal_sub => sub { 
+            my ($r, $data) = @_; 
+            return { url => $r, length => length($$data) };
+        }, 
+        #request_sub => sub {
+        #my ($r) = @_;
+        # ...
+        #return $data;
+        #},
+    ); 
+
+=cut

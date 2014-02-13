@@ -5,21 +5,24 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.10;
+our $VERSION = 0.11;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
-use WWW::Mechanize;
 use Moo;
+use Parallel::ForkManager;
+use WWW::Mechanize;
 
 has retry => ( is => 'rw', default => sub { 5 }, );
+has max_process_num => ( is => 'rw', default => sub { 5 }, );
 
 has browser => ( is => 'rw', default => \&init_browser );
 
 sub init_browser {
     my ($self) = @_;
     my $http = WWW::Mechanize->new(
-        onerror => sub { print "fail get url\n"; }, 
+        #onerror => sub { print "fail get url\n"; }, 
+        onerror => sub { return; }, 
         stack_depth => 2, 
     );
 
@@ -41,16 +44,50 @@ sub init_browser {
     return $http;
 } ## end sub init_browser
 
+sub request_urls {
+    my ($self, $arr, %opt) = @_;
+
+    my @res;
+    my $pm = Parallel::ForkManager->new( $self->{max_process_num} );
+    $pm->run_on_finish(
+        sub {
+            my ( $pid, $exit_code, $ident, $exit, $core, $data ) = @_;
+            return unless($data);
+            my ($i, $r) = @$data;
+            $res[$i] = $r;
+        }
+    );
+
+    $opt{request_sub} ||= sub {
+        my ($x) = @_;
+        my ($url, $post_var) = exists $opt{url_sub} ? $opt{url_sub}->($x) : 
+        ref($x) eq 'HASH' ? ( $x->{url}, $x->{post_var} )  :
+        ref($x) eq 'ARRAY' ? @$x : 
+        ($x, undef);
+        return $self->request_url($url, $post_var);
+    };
+
+    for my $i (0 .. $#$arr){
+        my $pid = $pm->start and next;
+        my $x = $arr->[$i];
+
+        my $s = $opt{request_sub}->($x);
+        $s = $opt{deal_sub}->($x, $s) if(exists $opt{deal_sub});
+
+        $pm->finish( 0, [ $i, $s ] );
+    }
+    $pm->wait_all_children;
+    return \@res;
+}
+
 sub request_url {
     my ( $self, $url, $post_data ) = @_;
 
     my $response;
     for my $i ( 1 .. $self->{retry} ) {
         eval { $response = $self->make_request( $url, $post_data ); };
-
         return $self->decode_response_content($response) if ($response);
-
-        sleep 1;
+        sleep 2;
     } ## end for my $i ( 1 .. $self->...)
 
     return;
