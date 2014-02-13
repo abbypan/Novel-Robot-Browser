@@ -5,21 +5,22 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.11;
+our $VERSION = 0.12;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
-use Moo;
 use Parallel::ForkManager;
 use WWW::Mechanize;
 
-has retry => ( is => 'rw', default => sub { 5 }, );
-has max_process_num => ( is => 'rw', default => sub { 5 }, );
+sub new {
+    my ($self, %opt) = @_;
+    $opt{retry} ||= 5;
+    $opt{max_process_num} ||=5;
+    $opt{browser} ||= _init_browser();
+    bless { %opt } , __PACKAGE__;
+}
 
-has browser => ( is => 'rw', default => \&init_browser );
-
-sub init_browser {
-    my ($self) = @_;
+sub _init_browser {
     my $http = WWW::Mechanize->new(
         #onerror => sub { print "fail get url\n"; }, 
         onerror => sub { return; }, 
@@ -118,5 +119,4 @@ sub decode_response_content {
     return \$html;
 }
 
-no Moo;
 1;
