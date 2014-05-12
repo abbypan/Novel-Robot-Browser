@@ -4,7 +4,11 @@
 
 =head1 NAME
 
-L<Novel::Robot::Browser> 自动化获取网页内容，并解码为unicode
+L<Novel::Robot::Browser> 
+
+get/post url, return unicode content, auto detect CJK charset
+
+自动化获取网页内容，并解码为unicode，主要是自动检测网页的中文字符集
 
 =head1 FUNCTION
 

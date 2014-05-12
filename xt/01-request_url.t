@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use utf8;
+use lib 'lib';
 use Novel::Robot::Browser;
 use Test::More ;
 use Data::Dump qw/dump/;
@@ -7,8 +8,9 @@ use Data::Dump qw/dump/;
 my $browser = Novel::Robot::Browser->new();
 
 my $url = 'http://www.jjwxc.net/onebook.php?novelid=2456';
-my $content_get_ref = $browser->request_url($url);
-dump($content_get_ref);
+my $content_get_ref = $browser->request_url_simple($url);
+print $$content_get_ref;
+exit;
 
 my $form_url = 'http://www.jjwxc.net/search.php';
 my $post_data = {
