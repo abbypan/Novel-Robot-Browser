@@ -112,7 +112,8 @@ sub request_url_simple {
 
     my $html;
     my $content = $res->{content};
-    if ( $res->{headers}{'content-encoding'} eq 'gzip' ) {
+    if ( $res->{headers}{'content-encoding'} and
+         $res->{headers}{'content-encoding'} eq 'gzip' ) {
         gunzip \$content => \$html, MultiStream => 1, Append => 1;
     }
 
