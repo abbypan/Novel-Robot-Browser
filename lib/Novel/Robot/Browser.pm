@@ -90,6 +90,7 @@ sub request_urls {
 
 sub request_url {
     my ( $self, $url, $form ) = @_;
+    return unless($url);
 
     my $c;
     for my $i ( 1 .. $self->{retry} ) {
