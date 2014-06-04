@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.15;
+our $VERSION = 0.16;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
@@ -13,17 +13,17 @@ use HTTP::Tiny;
 use Parallel::ForkManager;
 use Term::ProgressBar;
 use IO::Uncompress::Gunzip qw(gunzip);
+use URI::Escape;
 
 our $DEFAULT_URL_CONTENT = '';
 our %DEFAULT_HEADER = (
-    'Accept' =>
-      'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 
     'Accept-Charset'  => 'gb2312,utf-8;q=0.7,*;q=0.7',
     'Accept-Encoding' => "gzip",
+    'Accept-Language' => 'zh,zh-cn;q=0.8,en-us;q=0.5,en;q=0.3', 
     'Connection'      => 'keep-alive',
-    'User-Agent' =>
-      'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0; MALC)',
-    'Accept-Language' => "zh-cn,zh-tw;q=0.7, en-us,*;q=0.3",
+    'User-Agent' => 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:29.0) Gecko/20100101 Firefox/29.0', 
+    'DNT' => 1, 
 );
 
 sub new {
@@ -48,9 +48,8 @@ sub _init_browser {
 sub request_urls {
     my ( $self, $src_arr, %opt ) = @_;
     # arr : url / { url => .. }
-    # data_sub => sub { my ($html_ref) = @_ ; ... }
-    
-    my $arr = $opt{select_url_sub} ? $opt{select_url_sub}->( $src_arr ) : $src_arr;
+    # process_sub => sub { my ($html_ref) = @_ ; ... }
+    my $arr = $opt{select_url_sub}->( $src_arr );
     
     my $iter_sub = sub {
         my ($r) = @_;
@@ -72,7 +71,7 @@ sub request_urls {
 
     my $progress;
     $progress = Term::ProgressBar->new( { count => scalar(@$arr) } )
-      if ( $opt{show_progress_bar} );
+      if ( $opt{verbose} );
 
     my $cnt = 0;
     my @res_arr;
@@ -82,7 +81,7 @@ sub request_urls {
             my ( $pid, $exit_code, $ident, $exit, $core, $data ) = @_;
 
             $cnt++;
-            $progress->update($cnt) if ( $opt{show_progress_bar} );
+            $progress->update($cnt) if ( $opt{verbose} );
             return unless ($data);
 
             my ( $id, @res ) = @$data;
@@ -115,7 +114,12 @@ sub request_urls_iter {
     for my $u (@$select_url_list) {
         return ( $info, $data_list ) if ( $o{stop_sub}->( $info, $data_list ) );
 
-        my $c = $self->request_url($u);
+        my ( $u_url, $u_post_data ) =
+        ref($u) eq 'HASH' ? @{$u}{qw/url post_data/} 
+        : ( $u, undef );
+
+        my $c = $self->request_url($u_url, $u_post_data);
+
         my $fs = $o{data_list_sub}->( \$c ) || [];
         push @$data_list, @$fs;
     }
@@ -137,12 +141,30 @@ sub request_url {
     return $c || $DEFAULT_URL_CONTENT;
 }
 
+sub format_post_content {
+    my ($self, $form) = @_;
+
+    my @params;
+    while(my ($k, $v) = each %$form){
+        push @params, uri_escape($k)."=".uri_escape($v);
+    }
+
+    my $post_str = join("&", @params);
+    return $post_str;
+}
+
 sub request_url_simple {
     my ( $self, $url, $form ) = @_;
 
     my $res =
         $form
-      ? $self->{browser}->post_form( $url, $form )
+      ? 
+      $self->{browser}->request('POST', $url, {
+              content => $self->format_post_content($form),
+               headers => { 
+                   %DEFAULT_HEADER, 
+                   'content-type' => 'application/x-www-form-urlencoded' }, 
+          })
       : $self->{browser}->get($url);
     return $DEFAULT_URL_CONTENT unless ( $res->{success} );
 
