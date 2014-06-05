@@ -49,7 +49,10 @@ sub request_urls {
     my ( $self, $src_arr, %opt ) = @_;
     # arr : url / { url => .. }
     # process_sub => sub { my ($html_ref) = @_ ; ... }
-    my $arr = $opt{select_url_sub}->( $src_arr );
+    my $arr = $opt{select_url_sub} ? $opt{select_url_sub}->( $src_arr ) : $src_arr;
+
+    my $cnt = 0;
+    my @res_arr;
     
     my $iter_sub = sub {
         my ($r) = @_;
@@ -73,8 +76,6 @@ sub request_urls {
     $progress = Term::ProgressBar->new( { count => scalar(@$arr) } )
       if ( $opt{verbose} );
 
-    my $cnt = 0;
-    my @res_arr;
 
     my $pm = Parallel::ForkManager->new( $self->{max_process_num} );
     $pm->run_on_finish(sub {
