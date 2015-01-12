@@ -52,7 +52,7 @@ sub request_urls {
     my $arr = $opt{select_url_sub} ? $opt{select_url_sub}->( $src_arr ) : $src_arr;
 
     my $cnt = 0;
-    my @res_arr;
+    my @res_arr =();
     
     my $iter_sub = sub {
         my ($r) = @_;
@@ -90,9 +90,10 @@ sub request_urls {
         });
 
     for my $i ( 0 .. $#$arr ) {
+        my $r = $arr->[$i];
         my $pid = $pm->start and next;
-        my @s = $iter_sub->($arr->[$i]);
-        $pm->finish( 0, [ $i, @s ] );
+        my @res = $iter_sub->($r);
+        $pm->finish( 0, [ $i, @res ]);
     }
 
     $pm->wait_all_children;
