@@ -52,7 +52,7 @@ sub request_urls {
     my $arr = $opt{select_url_sub} ? $opt{select_url_sub}->( $src_arr ) : $src_arr;
 
     my $cnt = 0;
-    my @res_arr =();
+    my %res_hash = ();
     
     my $iter_sub = sub {
         my ($r) = @_;
@@ -85,8 +85,10 @@ sub request_urls {
             $progress->update($cnt) if ( $opt{verbose} );
             return unless ($data);
 
-            my ( $id, @res ) = @$data;
-            $res_arr[$id] = $#res==0 ? $res[0] : \@res;
+            #my ( $id, @res ) = @$data;
+            #$res_arr[$id] = $#res==0 ? $res[0] : \@res;
+            my ( $i, @res ) = @$data;
+            $res_hash{$i} = $#res==0 ? $res[0] : \@res;
         });
 
     for my $i ( 0 .. $#$arr ) {
@@ -98,6 +100,7 @@ sub request_urls {
 
     $pm->wait_all_children;
 
+    my @res_arr = map { $res_hash{$_} } ( 0 .. $#$arr);
     return \@res_arr;
 }
 
