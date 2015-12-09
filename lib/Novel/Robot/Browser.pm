@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.16;
+our $VERSION = 0.17;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
@@ -90,8 +90,8 @@ sub request_urls {
         });
 
     for my $i ( 0 .. $#$arr ) {
-        my $r = $arr->[$i];
         my $pid = $pm->start and next;
+        my $r = $arr->[$i];
         my @res = $iter_sub->($r);
         $pm->finish( 0, [ $i, @res ]);
     }
