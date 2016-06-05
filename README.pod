@@ -56,26 +56,26 @@ get/post url, return unicode content, auto detect CJK charset
 
     my $src_arr = [ 'http://www.ustc.edu.cn', 'http://202.38.64.10' ];
     my ($info, $url_list) = $browser->request_urls_iter( $url, 
-        info_sub => sub { 
-            my ($html_ref) = @_; 
-            # ...
-        }, 
-        data_list_sub => sub { 
-            my ($html_ref) = @_; 
-            # ...
-        }, 
-        stop_sub => sub { 
-            my ($info, $data_list) = @_; 
-            # ...
-        }, 
-        url_list_sub => sub { 
-            my ($html_ref) = @_; 
-            # ...
-        }, 
-        select_url_sub => sub {
-            my ($url_list) = @_; 
-            # ...
-        }, 
-    );
+            parse_info => sub { 
+                my ($html_ref) = @_; 
+                # ...
+            }, 
+            parse_content => sub { 
+                my ($html_ref) = @_; 
+                # ...
+            }, 
+            stop_iter => sub { 
+                my ($info, $data_list, $i, %o) = @_; 
+                # ...
+            }, 
+            next_url => sub { 
+                my ($start_url, $i, $html_ref) = @_; 
+                # ...
+            }, 
+            deal_content_url => sub {
+                my ($h) = @_; 
+                # ...
+            }, 
+            );
 
 =cut
