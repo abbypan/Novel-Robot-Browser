@@ -170,8 +170,8 @@ sub request_urls_iter {
 
         my ( $u_url, $u_post_data ) = ref($u) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
         my $c = $self->request_url($u_url, $u_post_data);
-        my $fs = $o{parse_content}->( \$c ) || [];
-        last unless(@$fs);
+        my $fs = $o{parse_content}->( \$c );
+        last unless($fs);
 
         push @$data_list, @$fs;
         return ( $info, $data_list ) if ( $o{stop_iter} and $o{stop_iter}->( $info, $data_list, $i, %o ) );
