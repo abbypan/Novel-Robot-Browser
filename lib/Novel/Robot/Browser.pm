@@ -48,101 +48,117 @@ sub _init_browser {
 
 sub request_urls {
 
-    my ( $self, $url, %o ) = @_;
+  my ( $self, $url, %o ) = @_;
 
-    my $html = $self->request_url( $url, $o{post_data} );
-    my $info      = $o{info_sub}->( \$html )    || {};
-    $info->{url} = $url;
+  my $html = $self->request_url( $url, $o{post_data} );
+  my $info = $o{info_sub}->( \$html ) || {};
+  $info->{url} = $url;
 
-    my $url_list = $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
-    #my $arr = $o{select_url_sub} ? $o{select_url_sub}->( $url_list ) : $url_list;
+  my $url_list = $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
 
-    my $cnt      = 0;
-    my $progress;
-    $progress = Term::ProgressBar->new( { count => scalar( @$url_list ) } ) if ( $o{verbose} );
+  #my $arr = $o{select_url_sub} ? $o{select_url_sub}->( $url_list ) : $url_list;
 
-    my @result;
-    for my $i ( 0 .. $#$url_list ) {
-        my $r   = $url_list->[$i];
-        $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
-        $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
+  my $cnt = 0;
+  my $progress;
+  $progress = Term::ProgressBar->new( { count => scalar( @$url_list ) } ) if ( $o{verbose} );
 
-        my $j = exists $r->{id} ? $r->{id} : ($i+1);
-        next if ( $o{min_item_num} and $j < $o{min_item_num} );
-        last if ( $o{max_item_num} and $j > $o{max_item_num} );
+  my @result;
+  for my $i ( 0 .. $#$url_list ) {
+    my $r = $url_list->[$i];
+    $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
+    $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
 
-        my $h = $self->request_url($r->{url}, $r->{post_data}); 
-        my $c = \$h;
+    my $j = exists $r->{id} ? $r->{id} : ( $i + 1 );
+    next if ( $o{min_item_num} and $j < $o{min_item_num} );
+    last if ( $o{max_item_num} and $j > $o{max_item_num} );
 
-        my @res = exists $o{content_sub} ? $o{content_sub}->($c) : ($c);
-        my $item_id=$j;
-        $_->{id} //= $item_id++ for @res;
-        push @result, $#res == 0 ? $res[0] : \@res;
+    my $h = $self->request_url( $r->{url}, $r->{post_data} );
+    my $c = \$h;
 
-        $cnt=$i;
-        $progress->update( $cnt ) if ( $o{verbose} );
-    }
+    my @res = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
+    my $item_id = $j;
+    $_->{id} //= $item_id++ for @res;
+    push @result, $#res == 0 ? $res[0] : \@res;
 
-    $progress->update( scalar( @$url_list )  ) if ( $o{verbose} );
+    $cnt = $i;
+    $progress->update( $cnt ) if ( $o{verbose} );
+  } ## end for my $i ( 0 .. $#$url_list)
 
-    $info->{chapter_list} = $url_list;
+  $progress->update( scalar( @$url_list ) ) if ( $o{verbose} );
 
-    return ($info, \@result);
+  $info->{chapter_list} = $url_list;
+
+  return ( $info, \@result );
 } ## end sub request_urls
 
 sub request_urls_iter {
-    my ( $self, $url, %o ) = @_;
+  my ( $self, $url, %o ) = @_;
 
-    my $html = $self->request_url( $url, $o{post_data} );
-    print "novel_url: $url\n" if($o{verbose});
+  my $html = $self->request_url( $url, $o{post_data} );
+  print "novel_url: $url\n" if ( $o{verbose} );
 
-    my $info      = $o{info_sub}->( \$html )    || {};
-    my $data_list = $o{content_sub}->( \$html ) || [];
+  my $info      = $o{info_sub}->( \$html )    || {};
+  my $data_list = $o{content_sub}->( \$html ) || [];
 
-    my $i = 1;
-    unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) ){
-        $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
-        my $url_list = exists $o{next_url_sub} ? [] : $o{url_list_sub}->( \$html ) ;
-        while ( 1 ) {
-            $i++;
-            my $u = $url_list->[ $i - 2 ] || ( $o{next_url_sub} ? $o{next_url_sub}->( $url, $i, \$html ) : undef );
-            last unless ( $u );
-            next if ( $o{min_page_num} and $i < $o{min_page_num} );
-            last if ( $o{max_page_num} and $i > $o{max_page_num} );
+  my $i = 1;
+  unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) ) {
+    $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
+    my $url_list = exists $o{next_url_sub} ? [] : $o{url_list_sub}->( \$html );
+    while ( 1 ) {
+      $i++;
+      my $u = $url_list->[ $i - 2 ] || ( $o{next_url_sub} ? $o{next_url_sub}->( $url, $i, \$html ) : undef );
+      last unless ( $u );
+      next if ( $o{min_page_num} and $i < $o{min_page_num} );
+      last if ( $o{max_page_num} and $i > $o{max_page_num} );
 
-            my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
-            my $c = $self->request_url( $u_url, $u_post_data );
-            print "content_url: $u_url\n" if($o{verbose});
-            my $fs = $o{content_sub}->( \$c );
-            last unless ( $fs );
+      my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
+      my $c = $self->request_url( $u_url, $u_post_data );
+      print "content_url: $u_url\n" if ( $o{verbose} );
+      my $fs = $o{content_sub}->( \$c );
+      last unless ( $fs );
 
-            push @$data_list, @$fs;
-            last if ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) );
-        }
+      push @$data_list, @$fs;
+      last if ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) );
     }
+  } ## end unless ( $o{stop_sub} and ...)
 
-    $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} ); #lofter倒序
+  $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} );  #lofter倒序
 
-    if($o{item_sub}){
-        my $item_id=0;
-        for my $r (@$data_list){
-            $r->{id} //= ++$item_id;
-            next unless(is_item_in_range($r, $o{min_item_num}, $o{max_item_num}));
+  if ( $o{item_sub} ) {
+    my $item_id = 0;
+    for my $r ( @$data_list ) {
+      $r->{id} //= ++$item_id;
+      next unless ( $self->is_item_in_range( $r->{id}, $o{min_item_num}, $o{max_item_num} ) );
 
-            print "item_url: $r->{url}\n" if($o{verbose});
-            $r = $o{item_sub}->($r);
-        }
+      print "item_url: $r->{url}\n" if ( $o{verbose} );
+      $r = $o{item_sub}->( $r );
     }
-    return ( $info, $data_list );
+  }
+  return ( $info, $data_list );
 } ## end sub request_urls_iter
 
 sub is_item_in_range {
-    my ($r, $min, $max) = @_;
-    return 1 unless($r->{id});
-    return 0 if($min and $r->{id}<$min);
-    return 0 if($max and $r->{id}>$max);
+    my ( $self, $id, $min, $max ) = @_;
+    return 1 unless ( $id );
+    return 0 if ( $min and $id < $min );
+    return 0 if ( $max and $id > $max );
     return 1;
 }
+
+sub is_list_overflow {
+    my ( $self, $r, $max ) = @_;
+
+    return unless ( $max );
+
+    my $floor_num = scalar( @$r );
+    my $id = $r->[-1]{id} // $floor_num;
+
+    return if ( $id < $max );
+
+    $#{$r} = $max - 1;
+    return 1;
+}
+
 
 sub request_url {
   my ( $self, $url, $form ) = @_;
