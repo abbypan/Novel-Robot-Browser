@@ -121,18 +121,28 @@ sub request_urls_iter {
         }
     }
 
+    $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} ); #lofter倒序
+
     if($o{item_sub}){
         my $item_id=0;
         for my $r (@$data_list){
             $r->{id} //= ++$item_id;
+            next unless(is_item_in_range($r, $o{min_item_num}, $o{max_item_num}));
+
             print "item_url: $r->{url}\n" if($o{verbose});
-            $r = $o{item_sub}->($r) unless( ($r->{id} and $o{min_item_num} and $r->{id}<$o{min_item_num}) or
-                ($r->{id} and $o{max_item_num} and $r->{id}>$o{max_item_num})
-            );
+            $r = $o{item_sub}->($r);
         }
     }
     return ( $info, $data_list );
 } ## end sub request_urls_iter
+
+sub is_item_in_range {
+    my ($r, $min, $max) = @_;
+    return 1 unless($r->{id});
+    return 0 if($min and $r->{id}<$min);
+    return 0 if($max and $r->{id}>$max);
+    return 1;
+}
 
 sub request_url {
   my ( $self, $url, $form ) = @_;
