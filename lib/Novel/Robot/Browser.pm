@@ -124,7 +124,9 @@ sub request_urls_iter {
     if($o{item_sub}){
         for my $r (@$data_list){
             print "item_url: $r->{url}\n" if($o{verbose});
-            $r = $o{item_sub}->($r) ;
+            $r = $o{item_sub}->($r) unless( ($r->{id} and $o{min_item_num} and $r->{id}<$o{min_item_num}) or
+                ($r->{id} and $o{max_item_num} and $r->{id}>$o{max_item_num})
+            );
         }
     }
     return ( $info, $data_list );
