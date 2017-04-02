@@ -14,6 +14,7 @@ use Parallel::ForkManager;
 use Term::ProgressBar;
 use IO::Uncompress::Gunzip qw(gunzip);
 use URI::Escape;
+use URI;
 
 our $DEFAULT_URL_CONTENT = '';
 our %DEFAULT_HEADER      = (
@@ -51,6 +52,7 @@ sub request_urls {
 
     my $html = $self->request_url( $url, $o{post_data} );
     my $info      = $o{info_sub}->( \$html )    || {};
+    $info->{url} = $url;
 
     my $url_list = $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
     #my $arr = $o{select_url_sub} ? $o{select_url_sub}->( $url_list ) : $url_list;
@@ -63,16 +65,14 @@ sub request_urls {
     for my $i ( 0 .. $#$url_list ) {
         my $r   = $url_list->[$i];
         $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
+        $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
 
         my $j = exists $r->{id} ? $r->{id} : ($i+1);
         next if ( $o{min_item_num} and $j < $o{min_item_num} );
         last if ( $o{max_item_num} and $j > $o{max_item_num} );
 
-        my $c = $r->{url};
-        if($r->{url}=~/^https?:/){
-            my $h = $self->request_url($r->{url}, $r->{post_data}); 
-            $c = \$h;
-        }
+        my $h = $self->request_url($r->{url}, $r->{post_data}); 
+        my $c = \$h;
 
         my @res = exists $o{content_sub} ? $o{content_sub}->($c) : ($c);
         my $item_id=$j;
@@ -84,6 +84,8 @@ sub request_urls {
     }
 
     $progress->update( scalar( @$url_list )  ) if ( $o{verbose} );
+
+    $info->{chapter_list} = $url_list;
 
     return ($info, \@result);
 } ## end sub request_urls
