@@ -94,31 +94,39 @@ sub request_urls_iter {
     my ( $self, $url, %o ) = @_;
 
     my $html = $self->request_url( $url, $o{post_data} );
+    print "novel_url: $url\n" if($o{verbose});
 
     my $info      = $o{info_sub}->( \$html )    || {};
     my $data_list = $o{content_sub}->( \$html ) || [];
 
     my $i = 1;
-    return ( $info, $data_list ) if ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) );
-    $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
+    unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) ){
+        $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
+        my $url_list = exists $o{next_url_sub} ? [] : $o{url_list_sub}->( \$html ) ;
+        while ( 1 ) {
+            $i++;
+            my $u = $url_list->[ $i - 2 ] || ( $o{next_url_sub} ? $o{next_url_sub}->( $url, $i, \$html ) : undef );
+            last unless ( $u );
+            next if ( $o{min_page_num} and $i < $o{min_page_num} );
+            last if ( $o{max_page_num} and $i > $o{max_page_num} );
 
-    my $url_list = $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
-    while ( 1 ) {
-        $i++;
-        my $u = $url_list->[ $i - 2 ] || ( $o{next_url_sub} ? $o{next_url_sub}->( $url, $i, \$html ) : undef );
-        last unless ( $u );
-        next if ( $o{min_page_num} and $i < $o{min_page_num} );
-        last if ( $o{max_page_num} and $i > $o{max_page_num} );
+            my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
+            my $c = $self->request_url( $u_url, $u_post_data );
+            print "content_url: $u_url\n" if($o{verbose});
+            my $fs = $o{content_sub}->( \$c );
+            last unless ( $fs );
 
-        my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
-        my $c = $self->request_url( $u_url, $u_post_data );
-        my $fs = $o{content_sub}->( \$c );
-        last unless ( $fs );
-
-        push @$data_list, @$fs;
-        return ( $info, $data_list ) if ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) );
+            push @$data_list, @$fs;
+            last if ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) );
+        }
     }
 
+    if($o{item_sub}){
+        for my $r (@$data_list){
+            print "item_url: $r->{url}\n" if($o{verbose});
+            $r = $o{item_sub}->($r) ;
+        }
+    }
     return ( $info, $data_list );
 } ## end sub request_urls_iter
 
