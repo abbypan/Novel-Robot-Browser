@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.19;
+our $VERSION = 0.20;
 
 use Encode::Detect::CJK qw/detect/;
 use Encode;
