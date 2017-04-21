@@ -68,18 +68,17 @@ sub request_urls {
     my $r = $url_list->[$i];
     $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
     $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
+    $r->{id} //= $i+1;
 
-    my $j = exists $r->{id} ? $r->{id} : ( $i + 1 );
-    next if ( $o{min_item_num} and $j < $o{min_item_num} );
-    last if ( $o{max_item_num} and $j > $o{max_item_num} );
+    next if ( $o{min_item_num} and $r->{id} < $o{min_item_num} );
+    last if ( $o{max_item_num} and $r->{id} > $o{max_item_num} );
 
     my $h = $self->request_url( $r->{url}, $r->{post_data} );
     my $c = \$h;
 
-    my @res = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
-
-    $_->{id} //= ++$item_id for @res;
-    push @result, $#res == 0 ? $res[0] : \@res;
+    my $cr = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
+    $cr->{id} = $r->{id};
+    push @result, $cr;
 
     $cnt = $i;
     $progress->update( $cnt ) if ( $o{verbose} );
