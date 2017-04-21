@@ -123,6 +123,7 @@ sub request_urls_iter {
   } ## end unless ( $o{stop_sub} and ...)
 
   $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} );  #lofter倒序
+  $info->{floor_num} = $data_list->[-1]{id} || scalar(@$data_list) || $i;
 
   if ( $o{item_sub} ) {
     my $item_id = 0;
