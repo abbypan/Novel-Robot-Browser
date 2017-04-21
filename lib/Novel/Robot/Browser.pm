@@ -63,6 +63,7 @@ sub request_urls {
   $progress = Term::ProgressBar->new( { count => scalar( @$url_list ) } ) if ( $o{verbose} );
 
   my @result;
+  my $item_id = 0;
   for my $i ( 0 .. $#$url_list ) {
     my $r = $url_list->[$i];
     $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
@@ -76,8 +77,8 @@ sub request_urls {
     my $c = \$h;
 
     my @res = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
-    my $item_id = $j;
-    $_->{id} //= $item_id++ for @res;
+
+    $_->{id} //= ++$item_id for @res;
     push @result, $#res == 0 ? $res[0] : \@res;
 
     $cnt = $i;
