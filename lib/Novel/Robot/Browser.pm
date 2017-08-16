@@ -54,9 +54,8 @@ sub request_urls {
   my $info = $o{info_sub}->( \$html ) || {};
   $info->{url} = $url;
 
-  my $url_list = $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
-
-  #my $arr = $o{select_url_sub} ? $o{select_url_sub}->( $url_list ) : $url_list;
+  my $url_list = exists $info->{chapter_list} ? $info->{chapter_list} : 
+                    defined $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
 
   my $cnt = 0;
   my $progress;
@@ -177,6 +176,8 @@ sub request_url {
 
 sub format_post_content {
   my ( $self, $form ) = @_;
+
+  return $form unless(ref($form) eq 'HASH');
 
   my @params;
   while ( my ( $k, $v ) = each %$form ) {
