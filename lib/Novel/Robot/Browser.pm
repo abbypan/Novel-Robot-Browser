@@ -48,46 +48,45 @@ sub _init_browser {
 
 sub request_urls {
 
-  my ( $self, $url, %o ) = @_;
+    my ( $self, $url, %o ) = @_;
 
-  my $html = $self->request_url( $url, $o{post_data} );
-  my $info = $o{info_sub}->( \$html ) || {};
-  $info->{url} = $url;
+    my $html = $self->request_url( $url, $o{post_data} );
+    my $info = $o{info_sub}->( \$html ) || {};
+    $info->{url} = $url;
 
-  my $url_list = exists $info->{chapter_list} ? $info->{chapter_list} : 
-                    defined $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
+    my $url_list = exists $info->{url_list} ? $info->{url_list} : 
+    defined $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
 
-  my $cnt = 0;
-  my $progress;
-  $progress = Term::ProgressBar->new( { count => scalar( @$url_list ) } ) if ( $o{verbose} );
+    my $cnt = 0;
+    my $url_list_num = scalar( @$url_list );
+    my $progress;
+    $progress = Term::ProgressBar->new( { count => $url_list_num } ) if ( $o{verbose} );
 
-  my @result;
-  my $item_id = 0;
-  for my $i ( 0 .. $#$url_list ) {
-    my $r = $url_list->[$i];
-    $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
-    $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
-    $r->{id} //= $i+1;
+    my @result;
+    my $item_id = 0;
+    for my $i ( 0 .. $#$url_list ) {
+        my $r = $url_list->[$i];
+        $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
+        $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
+        $r->{id} //= $i+1;
 
-    next if ( $o{min_item_num} and $r->{id} < $o{min_item_num} );
-    last if ( $o{max_item_num} and $r->{id} > $o{max_item_num} );
+        next if ( $o{min_item_num} and $r->{id} < $o{min_item_num} );
+        last if ( $o{max_item_num} and $r->{id} > $o{max_item_num} );
 
-    my $h = $self->request_url( $r->{url}, $r->{post_data} );
-    my $c = \$h;
+        my $h = $self->request_url( $r->{url}, $r->{post_data} );
+        my $c = \$h;
 
-    my $cr = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
-    $cr->{id} = $r->{id};
-    push @result, $cr;
+        my $cr = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
+        $cr->{$_} ||= $r->{$_} for keys(%$r);
+        push @result, $cr;
 
-    $cnt = $i;
-    $progress->update( $cnt ) if ( $o{verbose} );
-  } ## end for my $i ( 0 .. $#$url_list)
+        $cnt = $i;
+        $progress->update( $cnt ) if ( $o{verbose} );
+    } ## end for my $i ( 0 .. $#$url_list)
 
-  $progress->update( scalar( @$url_list ) ) if ( $o{verbose} );
+    $progress->update( $url_list_num ) if ( $o{verbose} );
 
-  $info->{chapter_list} = $url_list;
-
-  return ( $info, \@result );
+    return ( $info, \@result, $url_list_num );
 } ## end sub request_urls
 
 sub request_urls_iter {
