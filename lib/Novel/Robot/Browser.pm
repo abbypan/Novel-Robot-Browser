@@ -55,7 +55,7 @@ sub request_urls {
     $info->{url} = $url;
 
     my $url_list = exists $info->{url_list} ? $info->{url_list} : 
-    defined $o{url_list_sub} ? $o{url_list_sub}->( \$html ) : [];
+    defined $o{url_list_sub} ? $o{url_list_sub}->( \$html, $info ) : [];
 
     my $cnt = 0;
     my $url_list_num = scalar( @$url_list );
