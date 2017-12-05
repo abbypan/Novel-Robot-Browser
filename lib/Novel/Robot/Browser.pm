@@ -204,10 +204,13 @@ sub request_url_simple {
 
   my $res;
   if ( $form ) {
-    $self->{browser}{headers}{'content-type'} = 'application/x-www-form-urlencoded';
     $res = $self->{browser}->request(
       'POST', $url,
-      { content => $self->format_post_content( $form ) } );
+      { content => $self->format_post_content( $form ) , 
+        headers => {
+            'content-type' => 'application/x-www-form-urlencoded', 
+        }, 
+      } );
   } else {
     $res = $self->{browser}->get( $url );
   }
@@ -236,7 +239,7 @@ sub read_moz_cookie {
     @segment = map { [ split /\|/ ] } split /\n/, $sqlite3_cookie;
   } elsif ( -f $cookie and $cookie =~ /\.txt$/ ) {  # Netscape HTTP Cookie File
     my @ck = slurp( $cookie );
-    @segment = grep { $_->[0] =~ /(^|\.)\Q$dom\E$/ } map { [ split /\s+/ ] } @ck;
+    @segment = grep { $_->[0] and $_->[0] =~ /(^|\.)\Q$dom\E$/ } map { [ split /\s+/ ] } @ck;
   } else {                             # cookie string : name1=value1; name2=value2
     my @ck = split /;\s*/, $cookie;
     @segment = map { my @c = split /=/; [ $dom, undef, '/', undef, 0, $c[0], $c[1] ] } @ck;
