@@ -244,6 +244,7 @@ sub read_moz_cookie {
     my @ck = split /;\s*/, $cookie;
     @segment = map { my @c = split /=/; [ $dom, undef, '/', undef, 0, $c[0], $c[1] ] } @ck;
   }
+  #print Dumper(\@segment);
 
   my @jar = map { "$_->[5]=$_->[6]; Domain=$_->[0]; Path=$_->[2]; Expiry=$_->[4]" } @segment;
   $self->{browser}{cookie_jar}->load_cookies( @jar );
