@@ -246,6 +246,8 @@ sub read_moz_cookie {
   }
   #print Dumper(\@segment);
 
+  @segment = grep { defined $_->[6] and $_->[6]=~/\S/ } @segment;
+
   my @jar = map { "$_->[5]=$_->[6]; Domain=$_->[0]; Path=$_->[2]; Expiry=$_->[4]" } @segment;
   $self->{browser}{cookie_jar}->load_cookies( @jar );
 
