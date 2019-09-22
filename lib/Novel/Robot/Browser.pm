@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = 0.21;
+our $VERSION = 0.22;
 
 #use Novel::Robot::Browser::CookieJar;
 use HTTP::CookieJar;
@@ -37,6 +37,7 @@ sub new {
   $opt{retry}           ||= 5;
   $opt{max_process_num} ||= 5;
   $opt{browser}         ||= _init_browser( $opt{browser_headers} );
+  $opt{use_chrome}      ||= 0;
   bless {%opt}, __PACKAGE__;
 }
 
@@ -134,7 +135,7 @@ sub request_urls_iter {
   } ## end unless ( $o{stop_sub} and ...)
 
   $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} );  #lofter倒序
-  $info->{floor_num} = $data_list->[-1]{id} || scalar( @$data_list ) || $i;
+  $info->{floor_num} = ( $#$data_list >= 0 and exists $data_list->[-1]{id} ) ? $data_list->[-1]{id} : ( scalar( @$data_list ) || $i );
 
   if ( $o{item_sub} ) {
     my $item_id = 0;
@@ -163,7 +164,7 @@ sub is_list_overflow {
   return unless ( $max );
 
   my $floor_num = scalar( @$r );
-  my $id = $r->[-1]{id} // $floor_num;
+  my $id        = $r->[-1]{id} // $floor_num;
 
   return if ( $id < $max );
 
@@ -206,11 +207,14 @@ sub request_url_simple {
   if ( $form ) {
     $res = $self->{browser}->request(
       'POST', $url,
-      { content => $self->format_post_content( $form ) , 
+      { content => $self->format_post_content( $form ),
         headers => {
-            'content-type' => 'application/x-www-form-urlencoded', 
-        }, 
+          'content-type' => 'application/x-www-form-urlencoded',
+        },
       } );
+  } elsif ( $self->{use_chrome} ) {
+    $res->{content} = `chrome --no-sandbox --user-data-dir --headless --disable-gpu --dump-dom "$url" 2>/dev/null`;
+    $res->{success} = 1;
   } else {
     $res = $self->{browser}->get( $url );
   }
@@ -244,14 +248,16 @@ sub read_moz_cookie {
     my @ck = split /;\s*/, $cookie;
     @segment = map { my @c = split /=/; [ $dom, undef, '/', undef, 0, $c[0], $c[1] ] } @ck;
   }
+
   #print Dumper(\@segment);
 
-  @segment = grep { defined $_->[6] and $_->[6]=~/\S/ } @segment;
+  @segment = grep { defined $_->[6] and $_->[6] =~ /\S/ } @segment;
 
   my @jar = map { "$_->[5]=$_->[6]; Domain=$_->[0]; Path=$_->[2]; Expiry=$_->[4]" } @segment;
   $self->{browser}{cookie_jar}->load_cookies( @jar );
 
   $cookie = join( "; ", map { "$_->[5]=$_->[6]" } @segment );
+
   #$self->{browser}{cookie_jar}{cookie} = $cookie;
 
   return $cookie;
