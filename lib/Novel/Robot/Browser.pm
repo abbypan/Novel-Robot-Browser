@@ -58,75 +58,35 @@ sub _init_browser {
   return $http;
 }
 
-sub request_urls {
-
+sub request_url_whole {
   my ( $self, $url, %o ) = @_;
 
   my $html = $self->request_url( $url, $o{post_data} );
-  my $info = $o{info_sub}->( \$html ) || {};
-  $info->{url} = $url;
+  print "start_url: $url\n" if ( $o{verbose} );
 
-  my $url_list =
-      exists $info->{url_list} ? $info->{url_list}
-    : defined $o{url_list_sub} ? $o{url_list_sub}->( \$html, $info )
-    :                            [];
-
-  my $cnt          = 0;
-  my $url_list_num = scalar( @$url_list );
-  my $progress;
-  $progress = Term::ProgressBar->new( { count => $url_list_num } ) if ( $o{verbose} );
-
-  my @result;
-  my $item_id = 0;
-  for my $i ( 0 .. $#$url_list ) {
-    my $r = $url_list->[$i];
-    $r = { url => $r || '' } if ( ref( $r ) ne 'HASH' );
-    $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
-    $r->{id} //= $i + 1;
-
-    next if ( $o{min_item_num} and $r->{id} < $o{min_item_num} );
-    last if ( $o{max_item_num} and $r->{id} > $o{max_item_num} );
-
-    my $h = $self->request_url( $r->{url}, $r->{post_data} );
-    my $c = \$h;
-
-    my $cr = exists $o{content_sub} ? $o{content_sub}->( $c ) : ( $c );
-    $cr->{$_} ||= $r->{$_} for keys( %$r );
-    push @result, $cr;
-
-    $cnt = $i;
-    $progress->update( $cnt ) if ( $o{verbose} );
-  } ## end for my $i ( 0 .. $#$url_list)
-
-  $progress->update( $url_list_num ) if ( $o{verbose} );
-
-  return ( $info, \@result, $url_list_num );
-} ## end sub request_urls
-
-sub request_urls_iter {
-  my ( $self, $url, %o ) = @_;
-
-  my $html = $self->request_url( $url, $o{post_data} );
-  print "novel_url: $url\n" if ( $o{verbose} );
-
-  my $info      = $o{info_sub}->( \$html )    || {};
-  my $data_list = $o{content_sub}->( \$html ) || [];
+  my $info      = $o{info_sub}->( \$html )     || {};
+  #print Dumper('info_sub', $info);
+  my $data_list = $o{item_list_sub}->( \$html ) || [];
+  #print Dumper('data_list_sub', $data_list);
 
   my $i = 1;
   unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) ) {
     $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
-    my $url_list = exists $o{next_url_sub} ? [] : $o{url_list_sub}->( \$html );
+    my $page_list = exists $o{page_list_sub} ? $o{page_list_sub}->( \$html ) : undef;
+    #print Dumper('page_list_sub', $page_list);
     while ( 1 ) {
       $i++;
-      my $u = $url_list->[ $i - 2 ] || ( $o{next_url_sub} ? $o{next_url_sub}->( $url, $i, \$html ) : undef );
+      my $u = 
+        $page_list ?  $page_list->[ $i - 2 ] : 
+        ( exists $o{next_page_sub} ? $o{next_page_sub}->( $url, $i, \$html ) : undef );
       last unless ( $u );
       next if ( $o{min_page_num} and $i < $o{min_page_num} );
       last if ( $o{max_page_num} and $i > $o{max_page_num} );
 
       my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
       my $c = $self->request_url( $u_url, $u_post_data );
-      print "content_url: $u_url\n" if ( $o{verbose} );
-      my $fs = $o{content_sub}->( \$c );
+      print "item_list: $u_url\n" if ( $o{verbose} );
+      my $fs = $o{item_list_sub}->( \$c );
       last unless ( $fs );
 
       push @$data_list, @$fs;
@@ -134,21 +94,31 @@ sub request_urls_iter {
     }
   } ## end unless ( $o{stop_sub} and ...)
 
-  $data_list = [ reverse @$data_list ] if ( $o{reverse_content_list} );  #lofter倒序
-  $info->{floor_num} = ( $#$data_list >= 0 and exists $data_list->[-1]{id} ) ? $data_list->[-1]{id} : ( scalar( @$data_list ) || $i );
+  $data_list = [ reverse @$data_list ] if ( $o{reverse_item_list} );  #lofter倒序
+  $info->{item_num} = ( $#$data_list >= 0 and exists $data_list->[-1]{id} ) ? $data_list->[-1]{id} : ( scalar( @$data_list ) || $i );
 
   if ( $o{item_sub} ) {
     my $item_id = 0;
     for my $r ( @$data_list ) {
       $r->{id} //= ++$item_id;
+      $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
       next unless ( $self->is_item_in_range( $r->{id}, $o{min_item_num}, $o{max_item_num} ) );
 
       print "item_url: $r->{url}\n" if ( $o{verbose} );
-      $r = $o{item_sub}->( $r );
+      if($r->{url}){
+          my $c = $self->request_url( $r->{url}, $r->{post_data} );
+          #print "item content: $c\n";
+          my $temp_r = $o{item_sub}->( \$c );
+          $r->{content} = $temp_r->{content};
+          #$r = { %$r,  %$temp_r };
+          #print Dumper($r);
+      }else{
+          $r = $o{item_sub}->( $r );
+      }
     }
   }
   return ( $info, $data_list );
-} ## end sub request_urls_iter
+} ## end sub request_url_whole
 
 sub is_item_in_range {
   my ( $self, $id, $min, $max ) = @_;
