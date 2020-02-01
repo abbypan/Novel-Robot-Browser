@@ -62,15 +62,15 @@ sub request_url_whole {
   my ( $self, $url, %o ) = @_;
 
   my $html = $self->request_url( $url, $o{post_data} );
-  print "start_url: $url\n" if ( $o{verbose} );
 
   my $info      = $o{info_sub}->( \$html )     || {};
+  print "\r$info->{writer}, $info->{book}, $url" if ( $o{verbose} );
   #print Dumper('info_sub', $info);
-  my $data_list = $o{item_list_sub}->( \$html ) || [];
+  my $data_list = $o{item_list} || $o{item_list_sub}->( \$html ) || [];
   #print Dumper('data_list_sub', $data_list);
 
   my $i = 1;
-  unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) ) {
+  unless ( $o{stop_sub} and $o{stop_sub}->( $info, $data_list, $i, %o ) or defined $o{item_list}) {
     $data_list = [] if ( $o{min_page_num} and $o{min_page_num} > 1 );
     my $page_list = exists $o{page_list_sub} ? $o{page_list_sub}->( \$html ) : undef;
     #print Dumper('page_list_sub', $page_list);
@@ -85,7 +85,7 @@ sub request_url_whole {
 
       my ( $u_url, $u_post_data ) = ref( $u ) eq 'HASH' ? @{$u}{qw/url post_data/} : ( $u, undef );
       my $c = $self->request_url( $u_url, $u_post_data );
-      print "item_list: $u_url\n" if ( $o{verbose} );
+      #print "item_list: $u_url\n" if ( $o{verbose} );
       my $fs = $o{item_list_sub}->( \$c );
       last unless ( $fs );
 
@@ -94,17 +94,27 @@ sub request_url_whole {
     }
   } ## end unless ( $o{stop_sub} and ...)
 
-  $data_list = [ reverse @$data_list ] if ( $o{reverse_item_list} );  #lofter倒序
-  $info->{item_num} = ( $#$data_list >= 0 and exists $data_list->[-1]{id} ) ? $data_list->[-1]{id} : ( scalar( @$data_list ) || $i );
+  #lofter倒序
+  if ( $o{reverse_item_list} ){
+      $data_list = [ reverse @$data_list ];
+      my $max_id = $data_list->[0]{id};
+      if($max_id){
+          $_->{id} = $max_id - $_->{id} +1 for(@$data_list);
+      }
+  }
+  $info->{floor_num} = ( $#$data_list >= 0 and exists $data_list->[-1]{id} ) ? $data_list->[-1]{id} : ( scalar( @$data_list ) || $i );
 
   if ( $o{item_sub} ) {
     my $item_id = 0;
+  print "\n" if ( $o{verbose} );
+    my $progress;
+    $progress = Term::ProgressBar->new( { count => scalar(@$data_list) } ) if ( $o{verbose} );
     for my $r ( @$data_list ) {
       $r->{id} //= ++$item_id;
       $r->{url} = URI->new_abs( $r->{url}, $url )->as_string;
       next unless ( $self->is_item_in_range( $r->{id}, $o{min_item_num}, $o{max_item_num} ) );
 
-      print "item_url: $r->{url}\n" if ( $o{verbose} );
+      #print "item_url: $r->{url}\n" if ( $o{verbose} );
       if($r->{url}){
           my $c = $self->request_url( $r->{url}, $r->{post_data} );
           #print "item content: $c\n";
@@ -115,7 +125,9 @@ sub request_url_whole {
       }else{
           $r = $o{item_sub}->( $r );
       }
+           $progress->update( $item_id ) if ( $o{verbose} );
     }
+   $progress->update( scalar(@$data_list) ) if ( $o{verbose} ); 
   }
   return ( $info, $data_list );
 } ## end sub request_url_whole
